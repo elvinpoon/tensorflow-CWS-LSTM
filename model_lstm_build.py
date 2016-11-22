@@ -45,15 +45,6 @@ def lazy_property(function):
         return getattr(self, attribute)
     return wrapper
 
-def unpack_sequence(tensor):
-    """Split the single tensor of a sequence into a list of frames."""
-    return tf.unpack(tf.transpose(tensor, perm=[1, 0, 2]))
-
-def pack_sequence(sequence):
-    """Combine a list of the frames into a single tensor of the sequence."""
-    return tf.transpose(tf.pack(sequence), perm=[1, 0, 2])
-
-
 class CWSModel(object):
     def __init__(self, is_training, config):
         self.config = config
@@ -62,7 +53,7 @@ class CWSModel(object):
         num_steps = config.num_steps
         num_input = config.num_input
         num_class = config.num_class
-
+        # variable length(padded) and variable batch size - adjust yourself
         self._input_data = tf.placeholder(tf.int32, [None, None,num_input])
         self._target = tf.placeholder(tf.float32, [None, None,num_class])
         self._length = tf.placeholder(tf.int32, [None])
@@ -90,8 +81,7 @@ class CWSModel(object):
         session.run(tf.assign(self.embedding, embedding_matrix))
 
 
-    @lazy_property
-    #TODO: bucketing and padding combined
+    @lazy_propert
     def prediction(self):
         num_steps = tf.shape(self._input_data)[1]
         frame_size = self.config.num_input * self.config.embedding_size
@@ -110,7 +100,7 @@ class CWSModel(object):
             cell = tf.nn.rnn_cell.GRUCell(size)
             #cell._activation = tf.nn.relu
             if self.is_training and self.config.keep_prob < 1:
-                print 'hi'
+                # add dropout if needed
                 #inputs = tf.nn.dropout(inputs, self.config.keep_prob)
                 #cell = rnn_cell.DropoutWrapper(
                     #cell, output_keep_prob=self.config.keep_prob)
@@ -125,12 +115,12 @@ class CWSModel(object):
                                      sequence_length=self._length, initial_state=self._initial_state)
         output_w = weight_variable([size, num_class])
         output_b = bias_variable([num_class])
-        #outputs = tf.transpose(outputs,[1,0,2])
-
+        # design transition matrix to model tag dependencies
         tag_trans = weight_variable([num_class, num_class])
 
         def transition(previous_pred, x):
             res = tf.matmul(x, output_w) + output_b
+            # some minor optimization 
             #deviation = tf.tile(tf.expand_dims(tf.reduce_min(previous_pred, reduction_indices=1), 1),
             #                    [1, num_class])
 
@@ -139,7 +129,7 @@ class CWSModel(object):
             res += tf.matmul(previous_pred, tag_trans) * focus
             prediction = tf.nn.softmax(res)
             return prediction
-        # Recurrent network.
+        # Recurrent network - scan to apply transition matrix
         pred = tf.scan(transition, outputs,initializer=tf.zeros([batch_size,num_class]),parallel_iterations=100)
         pred = tf.transpose(pred,[1,0,2])
         ''' shape of prediction should be: [batch, num_step, num_class]'''
@@ -147,7 +137,7 @@ class CWSModel(object):
 
     @lazy_property
     def cost(self):
-        # Compute cross entropy for each frame.
+        # Compute cross entropy for each frame with masking func
         cross_entropy = self._target * tf.log(self.prediction)
         cross_entropy = -tf.reduce_sum(cross_entropy, reduction_indices=2)
         mask = tf.sign(tf.reduce_max(self._target, reduction_indices=2))
