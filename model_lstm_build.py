@@ -81,7 +81,7 @@ class CWSModel(object):
         session.run(tf.assign(self.embedding, embedding_matrix))
 
 
-    @lazy_propert
+    @lazy_property
     def prediction(self):
         num_steps = tf.shape(self._input_data)[1]
         frame_size = self.config.num_input * self.config.embedding_size
@@ -100,8 +100,9 @@ class CWSModel(object):
             cell = tf.nn.rnn_cell.GRUCell(size)
             #cell._activation = tf.nn.relu
             if self.is_training and self.config.keep_prob < 1:
-                # add dropout if needed
-                #inputs = tf.nn.dropout(inputs, self.config.keep_prob)
+                print 'hi'
+		# add dropout if needed
+                inputs = tf.nn.dropout(inputs, self.config.keep_prob)
                 #cell = rnn_cell.DropoutWrapper(
                     #cell, output_keep_prob=self.config.keep_prob)
             # stack layers of LSTM

@@ -106,7 +106,7 @@ def _file_to_ids(filename, word_to_id, unknown, tagged_line=True, per_line=False
         return x
 
 
-def data_loader(train_path, char_embedding, valid_path=None, test=False, per_line=False, debug=True):
+def data_loader(train_path, char_embedding, valid_path=None, test=False, per_line=False, debug=False):
 
     word_to_id = char_embedding.build_vocab()
     vocabulary = char_embedding.vocab_size()
